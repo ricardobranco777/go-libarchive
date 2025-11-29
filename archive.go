@@ -56,20 +56,6 @@ func (e *Error) Error() string {
 	return fmt.Sprintf("libarchive error code %d", e.Code)
 }
 
-// FileType describes the type of a filesystem entry.
-type FileType int
-
-const (
-	TypeUnknown FileType = iota
-	TypeRegular
-	TypeDirectory
-	TypeSymlink
-	TypeChar
-	TypeBlock
-	TypeFIFO
-	TypeSocket
-)
-
 // newArchive creates a new libarchive reader and enables all filters/formats.
 func newArchive() (*Archive, error) {
 	a := C.archive_read_new()
