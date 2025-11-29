@@ -7,6 +7,17 @@ package archive
 #include <archive.h>
 #include <archive_entry.h>
 #include <stdlib.h>
+
+extern ssize_t goReadCallback(struct archive*, uintptr_t, void**);
+extern int goCloseCallback(struct archive*, uintptr_t);
+
+static archive_read_callback *read_cb() {
+    return (archive_read_callback *)goReadCallback;
+}
+
+static archive_close_callback *close_cb() {
+    return (archive_close_callback *)goCloseCallback;
+}
 */
 import "C"
 
@@ -17,16 +28,23 @@ import (
 	"io/fs"
 	"os"
 	"runtime"
+	"runtime/cgo"
 	"time"
 	"unsafe"
 )
+
+type readerState struct {
+	r   io.Reader
+	buf []byte
+}
 
 // Archive is an opened libarchive reader.
 //
 // It is NOT safe for concurrent use by multiple goroutines.
 type Archive struct {
-	c  *C.struct_archive
-	rs *readerState // streaming state for OpenReader
+	c      *C.struct_archive
+	handle cgo.Handle
+	rs     *readerState // streaming state for OpenReader
 }
 
 // Entry represents a single entry (file, dir, symlink, ...) in an archive.
@@ -82,38 +100,6 @@ func newArchive() (*Archive, error) {
 	return ar, nil
 }
 
-// OpenFile opens an archive from a filesystem path.
-func OpenFile(path string) (*Archive, error) {
-	ar, err := newArchive()
-	if err != nil {
-		return nil, err
-	}
-
-	cpath := C.CString(path)
-	defer C.free(unsafe.Pointer(cpath))
-
-	// 10240 is the recommended default block size in examples.
-	if C.archive_read_open_filename(ar.c, cpath, 10240) != C.ARCHIVE_OK {
-		err := wrapArchiveError(ar.c, "archive_read_open_filename")
-		_ = ar.Close()
-		return nil, err
-	}
-
-	return ar, nil
-}
-
-// Close closes the archive and frees associated C resources.
-// It's safe to call multiple times.
-func (a *Archive) Close() error {
-	// archive_read_free returns ARCHIVE_OK or ARCHIVE_WARN on success.
-	r := C.archive_read_free(a.c)
-	a.c = nil
-	if r == C.ARCHIVE_OK || r == C.ARCHIVE_WARN {
-		return nil
-	}
-	return errors.New("libarchive: archive_read_free failed")
-}
-
 // Next advances to the next entry in the archive.
 // It returns io.EOF when there are no more entries.
 func (a *Archive) Next() (*Entry, error) {
@@ -140,8 +126,22 @@ func (a *Archive) Next() (*Entry, error) {
 	}
 }
 
-// Close frees the underlying archive_entry associated with e.
+// Close closes the archive and frees associated C resources.
 // It is safe to call multiple times.
+func (a *Archive) Close() error {
+	if a.c == nil {
+		return nil
+	}
+	r := C.archive_read_free(a.c)
+	a.c = nil
+	a.handle.Delete()
+	if r == C.ARCHIVE_OK || r == C.ARCHIVE_WARN {
+		return nil
+	}
+	return errors.New("libarchive: archive_read_free failed")
+}
+
+// Close frees the underlying archive_entry associated with e.
 func (e *Entry) Close() error {
 	C.archive_entry_free(e.c)
 	e.c = nil
@@ -228,18 +228,23 @@ func (e *Entry) IsDir() bool {
 }
 
 type EntrySys struct {
-	UID      int64
-	GID      int64
-	Dev      uint64
-	Linkname string
+	UID  uint32
+	GID  uint32
+	Size int64
+	Mode fs.FileMode
 }
 
 func (e *Entry) Sys() any {
+	st := C.archive_entry_stat(e.c)
+	if st == nil {
+		return nil
+	}
+
 	return &EntrySys{
-		UID:      e.UID(),
-		GID:      e.GID(),
-		Dev:      uint64(C.archive_entry_dev(e.c)),
-		Linkname: e.Linkname(),
+		UID:  uint32(st.st_uid),
+		GID:  uint32(st.st_gid),
+		Size: int64(st.st_size),
+		Mode: fs.FileMode(st.st_mode),
 	}
 }
 
@@ -264,4 +269,54 @@ func wrapArchiveError(a *C.struct_archive, message string) error {
 		Code: code,
 		Msg:  fmt.Sprintf("%s: %s", message, C.GoString(msg)),
 	}
+}
+
+//export goReadCallback
+func goReadCallback(a *C.struct_archive, clientData C.uintptr_t, buff *unsafe.Pointer) C.ssize_t {
+	h := cgo.Handle(uintptr(clientData))
+	ar := h.Value().(*Archive)
+
+	n, err := ar.rs.r.Read(ar.rs.buf)
+	if n > 0 {
+		*buff = unsafe.Pointer(&ar.rs.buf[0])
+		return C.ssize_t(n)
+	}
+	if err == io.EOF {
+		return C.ssize_t(0)
+	}
+	return C.ssize_t(-1)
+}
+
+//export goCloseCallback
+func goCloseCallback(a *C.struct_archive, clientData C.uintptr_t) C.int {
+	return C.ARCHIVE_OK
+}
+
+func OpenReader(r io.Reader) (*Archive, error) {
+	ar, err := newArchive()
+	if err != nil {
+		return nil, err
+	}
+
+	ar.rs = &readerState{
+		r:   r,
+		buf: make([]byte, 32*1024),
+	}
+
+	ar.handle = cgo.NewHandle(ar)
+
+	if C.archive_read_open(
+		ar.c,
+		unsafe.Pointer(uintptr(ar.handle)),
+		nil,
+		C.read_cb(),
+		C.close_cb(),
+	) != C.ARCHIVE_OK {
+		ar.handle.Delete()
+		err := wrapArchiveError(ar.c, "archive_read_open")
+		_ = ar.Close()
+		return nil, err
+	}
+
+	return ar, nil
 }
