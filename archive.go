@@ -9,14 +9,17 @@ package archive
 #include <stdlib.h>
 
 extern ssize_t goReadCallback(struct archive*, uintptr_t, void**);
+extern int64_t goSeekCallback(struct archive*, uintptr_t, int64_t, int);
 extern int goCloseCallback(struct archive*, uintptr_t);
 
 static archive_read_callback *read_cb() {
-    return (archive_read_callback *)goReadCallback;
+	return (archive_read_callback *)goReadCallback;
 }
-
+static archive_seek_callback *seek_cb() {
+	return (archive_seek_callback *)goSeekCallback;
+}
 static archive_close_callback *close_cb() {
-    return (archive_close_callback *)goCloseCallback;
+	return (archive_close_callback *)goCloseCallback;
 }
 */
 import "C"
@@ -126,7 +129,7 @@ func (a *Archive) Next() (*Entry, error) {
 	}
 }
 
-// Skip draining data
+// Skip entry by draining data for non-io.Seeker readers
 func (e *Entry) Skip() error {
 	var buf [32 * 1024]byte
 	for {
@@ -301,6 +304,24 @@ func goReadCallback(a *C.struct_archive, clientData C.uintptr_t, buff *unsafe.Po
 	return C.ssize_t(-1)
 }
 
+//export goSeekCallback
+func goSeekCallback(a *C.struct_archive, clientData C.uintptr_t, offset C.int64_t, whence C.int) C.int64_t {
+	h := cgo.Handle(uintptr(clientData))
+	ar := h.Value().(*Archive)
+
+	// Try to interpret the underlying reader as an io.Seeker.
+	s, ok := ar.rs.r.(io.Seeker)
+	if !ok {
+		return C.int64_t(-1)
+	}
+
+	n, err := s.Seek(int64(offset), int(whence))
+	if err != nil {
+		return C.int64_t(-1)
+	}
+	return C.int64_t(n)
+}
+
 //export goCloseCallback
 func goCloseCallback(a *C.struct_archive, clientData C.uintptr_t) C.int {
 	return C.ARCHIVE_OK
@@ -318,6 +339,16 @@ func OpenReader(r io.Reader) (*Archive, error) {
 	}
 
 	ar.handle = cgo.NewHandle(ar)
+
+	// If the underlying reader also implements io.Seeker,
+	// tell libarchive it can try to seek.
+	if _, ok := r.(io.Seeker); ok {
+		if C.archive_read_set_seek_callback(ar.c, C.seek_cb()) != C.ARCHIVE_OK {
+			ar.handle.Delete()
+			_ = ar.Close()
+			return nil, wrapArchiveError(ar.c, "archive_read_set_seek_callback")
+		}
+	}
 
 	if C.archive_read_open(
 		ar.c,
