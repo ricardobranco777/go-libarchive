@@ -151,7 +151,10 @@ func (a *Archive) Close() error {
 	}
 	r := C.archive_read_free(a.c)
 	a.c = nil
-	a.handle.Delete()
+	if a.handle != 0 {
+		a.handle.Delete()
+		a.handle = 0
+	}
 	if r == C.ARCHIVE_OK || r == C.ARCHIVE_WARN {
 		return nil
 	}
