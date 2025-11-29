@@ -241,8 +241,20 @@ func (e *Entry) IsDir() bool {
 	return e.Mode().IsDir()
 }
 
+type EntrySys struct {
+	UID      int64
+	GID      int64
+	Dev      uint64
+	Linkname string
+}
+
 func (e *Entry) Sys() any {
-	return nil // no extra platform data
+	return &EntrySys{
+		UID:      e.UID(),
+		GID:      e.GID(),
+		Dev:      uint64(C.archive_entry_dev(e.c)),
+		Linkname: e.Linkname(),
+	}
 }
 
 // wrapArchiveError reads errno and error string from the archive
