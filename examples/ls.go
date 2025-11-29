@@ -13,7 +13,8 @@ import (
 )
 
 func main() {
-	ar, err := libarchive.OpenFile("test.tar.gz")
+	// ar, err := libarchive.OpenFile("test.tar.gz")
+	ar, err := libarchive.OpenReader(os.Stdin)
 	if err != nil {
 		log.Fatal(err)
 	}

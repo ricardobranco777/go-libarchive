@@ -25,6 +25,7 @@ import (
 type Archive struct {
 	c      *C.struct_archive
 	closed bool
+	rs     *readerState // streaming state for OpenReader
 }
 
 // Entry represents a single entry (file, dir, symlink, ...) in an archive.
