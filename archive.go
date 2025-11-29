@@ -13,6 +13,8 @@ import "C"
 import (
 	"errors"
 	"fmt"
+	"io"
+	"io/fs"
 	"os"
 	"runtime"
 	"time"
@@ -23,9 +25,8 @@ import (
 //
 // It is NOT safe for concurrent use by multiple goroutines.
 type Archive struct {
-	c      *C.struct_archive
-	closed bool
-	rs     *readerState // streaming state for OpenReader
+	c  *C.struct_archive
+	rs *readerState // streaming state for OpenReader
 }
 
 // Entry represents a single entry (file, dir, symlink, ...) in an archive.
@@ -36,6 +37,8 @@ type Entry struct {
 	a *Archive
 	c *C.struct_archive_entry
 }
+
+var _ fs.FileInfo = (*Entry)(nil)
 
 // Error wraps libarchive's error state for an archive.
 type Error struct {
@@ -116,10 +119,6 @@ func OpenFile(path string) (*Archive, error) {
 // Close closes the archive and frees associated C resources.
 // It's safe to call multiple times.
 func (a *Archive) Close() error {
-	if a == nil || a.c == nil || a.closed {
-		return nil
-	}
-	a.closed = true
 	// archive_read_free returns ARCHIVE_OK or ARCHIVE_WARN on success.
 	r := C.archive_read_free(a.c)
 	a.c = nil
@@ -132,10 +131,6 @@ func (a *Archive) Close() error {
 // Next advances to the next entry in the archive.
 // It returns io.EOF when there are no more entries.
 func (a *Archive) Next() (*Entry, error) {
-	if a == nil || a.c == nil || a.closed {
-		return nil, errors.New("libarchive: archive is closed")
-	}
-
 	entry := C.archive_entry_new()
 	if entry == nil {
 		return nil, errors.New("libarchive: archive_entry_new failed")
@@ -145,7 +140,7 @@ func (a *Archive) Next() (*Entry, error) {
 	switch r {
 	case C.ARCHIVE_EOF:
 		C.archive_entry_free(entry)
-		return nil, os.ErrNotExist // or io.EOF; see comment below
+		return nil, io.EOF
 	case C.ARCHIVE_OK:
 		e := &Entry{a: a, c: entry}
 		runtime.SetFinalizer(e, func(e *Entry) {
@@ -162,9 +157,6 @@ func (a *Archive) Next() (*Entry, error) {
 // Close frees the underlying archive_entry associated with e.
 // It is safe to call multiple times.
 func (e *Entry) Close() error {
-	if e == nil || e.c == nil {
-		return nil
-	}
 	C.archive_entry_free(e.c)
 	e.c = nil
 	return nil
@@ -174,9 +166,6 @@ func (e *Entry) Close() error {
 //
 // It implements io.Reader. It returns 0, io.EOF when the entry is fully read.
 func (e *Entry) Read(p []byte) (int, error) {
-	if e == nil || e.a == nil || e.a.c == nil || e.a.closed {
-		return 0, errors.New("libarchive: archive is closed")
-	}
 	if len(p) == 0 {
 		return 0, nil
 	}
@@ -192,7 +181,7 @@ func (e *Entry) Read(p []byte) (int, error) {
 		return int(n), nil
 	case n == 0:
 		// End of entry data.
-		return 0, os.ErrNotExist // or io.EOF: change to your preferred sentinel
+		return 0, io.EOF
 	default:
 		return 0, wrapArchiveError(e.a.c, "archive_read_data")
 	}
@@ -200,9 +189,6 @@ func (e *Entry) Read(p []byte) (int, error) {
 
 // Name returns the path/name of the entry inside the archive.
 func (e *Entry) Name() string {
-	if e == nil || e.c == nil {
-		return ""
-	}
 	cname := C.archive_entry_pathname(e.c)
 	if cname == nil {
 		return ""
@@ -212,69 +198,27 @@ func (e *Entry) Name() string {
 
 // Size returns the entry size in bytes, or -1 if unknown.
 func (e *Entry) Size() int64 {
-	if e == nil || e.c == nil {
-		return -1
-	}
 	return int64(C.archive_entry_size(e.c))
 }
 
 // Mode returns the entry's permission bits as an os.FileMode.
 // (Type bits are also included.)
 func (e *Entry) Mode() os.FileMode {
-	if e == nil || e.c == nil {
-		return 0
-	}
-	m := uint32(C.archive_entry_mode(e.c))
-	return os.FileMode(m)
-}
-
-// FileType returns the high-level type of the entry (regular, dir, symlink, ...).
-func (e *Entry) FileType() FileType {
-	if e == nil || e.c == nil {
-		return TypeUnknown
-	}
-	t := C.archive_entry_filetype(e.c)
-	switch t {
-	case C.AE_IFREG:
-		return TypeRegular
-	case C.AE_IFDIR:
-		return TypeDirectory
-	case C.AE_IFLNK:
-		return TypeSymlink
-	case C.AE_IFCHR:
-		return TypeChar
-	case C.AE_IFBLK:
-		return TypeBlock
-	case C.AE_IFIFO:
-		return TypeFIFO
-	case C.AE_IFSOCK:
-		return TypeSocket
-	default:
-		return TypeUnknown
-	}
+	return os.FileMode(C.archive_entry_mode(e.c))
 }
 
 // UID returns the numeric user ID for the entry, or -1 if unknown.
 func (e *Entry) UID() int64 {
-	if e == nil || e.c == nil {
-		return -1
-	}
 	return int64(C.archive_entry_uid(e.c))
 }
 
 // GID returns the numeric group ID for the entry, or -1 if unknown.
 func (e *Entry) GID() int64 {
-	if e == nil || e.c == nil {
-		return -1
-	}
 	return int64(C.archive_entry_gid(e.c))
 }
 
 // Linkname returns the target of a symlink entry, if any.
 func (e *Entry) Linkname() string {
-	if e == nil || e.c == nil {
-		return ""
-	}
 	cname := C.archive_entry_symlink(e.c)
 	if cname == nil {
 		return ""
@@ -285,9 +229,6 @@ func (e *Entry) Linkname() string {
 // ModTime returns the modification time of the entry.
 // If the time is not set, it returns the zero time.
 func (e *Entry) ModTime() time.Time {
-	if e == nil || e.c == nil {
-		return time.Time{}
-	}
 	sec := int64(C.archive_entry_mtime(e.c))
 	nsec := int64(C.archive_entry_mtime_nsec(e.c))
 	if sec == 0 && nsec == 0 {
@@ -296,13 +237,21 @@ func (e *Entry) ModTime() time.Time {
 	return time.Unix(sec, nsec)
 }
 
+func (e *Entry) IsDir() bool {
+	return e.Mode().IsDir()
+}
+
+func (e *Entry) Sys() any {
+	return nil // no extra platform data
+}
+
 // wrapArchiveError reads errno and error string from the archive
 // and returns a Go error.
-func wrapArchiveError(a *C.struct_archive, context string) error {
+func wrapArchiveError(a *C.struct_archive, message string) error {
 	if a == nil {
 		return &Error{
 			Code: 0,
-			Msg:  context,
+			Msg:  message,
 		}
 	}
 	code := int(C.archive_errno(a))
@@ -310,11 +259,11 @@ func wrapArchiveError(a *C.struct_archive, context string) error {
 	if msg == nil {
 		return &Error{
 			Code: code,
-			Msg:  context,
+			Msg:  message,
 		}
 	}
 	return &Error{
 		Code: code,
-		Msg:  fmt.Sprintf("%s: %s", context, C.GoString(msg)),
+		Msg:  fmt.Sprintf("%s: %s", message, C.GoString(msg)),
 	}
 }
