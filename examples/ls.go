@@ -31,21 +31,8 @@ func main() {
 
 		fmt.Printf("Entry: %s (%d bytes)\n", e.Name(), e.Size())
 
-		// Example: drain data
-		var buf [32 * 1024]byte
-		for {
-			n, err := e.Read(buf[:])
-			if n > 0 {
-				// process buf[:n]
-			}
-			if err != nil {
-				if errors.Is(err, io.EOF) {
-					break
-				}
-				log.Fatal(err)
-			}
-		}
-
+		_ = e.Skip()
+		// FIXME: defer?
 		e.Close()
 	}
 }

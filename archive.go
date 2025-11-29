@@ -126,6 +126,20 @@ func (a *Archive) Next() (*Entry, error) {
 	}
 }
 
+// Skip draining data
+func (e *Entry) Skip() error {
+	var buf [32 * 1024]byte
+	for {
+		n, err := e.Read(buf[:])
+		if n == 0 && err != nil {
+			if errors.Is(err, io.EOF) {
+				return nil
+			}
+			return err
+		}
+	}
+}
+
 // Close closes the archive and frees associated C resources.
 // It is safe to call multiple times.
 func (a *Archive) Close() error {
