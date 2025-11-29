@@ -23,8 +23,7 @@ func main() {
 	for {
 		e, err := ar.Next()
 		if err != nil {
-			// You'll probably want to switch this to io.EOF in the impl above.
-			if errors.Is(err, io.EOF) || errors.Is(err, os.ErrNotExist) {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			log.Fatal(err)
@@ -40,7 +39,7 @@ func main() {
 				// process buf[:n]
 			}
 			if err != nil {
-				if errors.Is(err, io.EOF) || errors.Is(err, os.ErrNotExist) {
+				if errors.Is(err, io.EOF) {
 					break
 				}
 				log.Fatal(err)
