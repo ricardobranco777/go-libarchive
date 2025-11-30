@@ -29,13 +29,6 @@ type Entry struct {
 
 var _ fs.FileInfo = (*Entry)(nil)
 
-// Close frees the underlying archive_entry associated with e.
-func (e *Entry) Close() error {
-	C.archive_entry_free(e.c)
-	e.c = nil
-	return nil
-}
-
 // Read reads data from the current entry into p.
 //
 // It implements io.Reader. It returns 0, io.EOF when the entry is fully read.

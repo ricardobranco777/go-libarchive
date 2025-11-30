@@ -84,16 +84,17 @@ func (a *Archive) Next() (*Entry, error) {
 	case C.ARCHIVE_EOF:
 		C.archive_entry_free(entry)
 		return nil, io.EOF
+
 	case C.ARCHIVE_OK:
 		e := &Entry{a: a, c: entry}
 		runtime.SetFinalizer(e, func(e *Entry) {
-			_ = e.Close()
+			C.archive_entry_free(e.c)
 		})
 		return e, nil
+
 	default:
-		err := wrapArchiveError(a.c, "archive_read_next_header2")
 		C.archive_entry_free(entry)
-		return nil, err
+		return nil, wrapArchiveError(a.c, "archive_read_next_header2")
 	}
 }
 
