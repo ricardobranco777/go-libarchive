@@ -4,7 +4,8 @@ package archive
 
 import (
 	"io/fs"
-	"syscall"
+
+	"golang.org/x/sys/unix"
 )
 
 // Converts fs.FileMode to uint32
@@ -17,32 +18,32 @@ func FileModeToMode(m fs.FileMode) uint32 {
 	// type
 	switch {
 	case m.IsDir():
-		mode |= syscall.S_IFDIR
+		mode |= unix.S_IFDIR
 	case m&fs.ModeSymlink != 0:
-		mode |= syscall.S_IFLNK
+		mode |= unix.S_IFLNK
 	case m&fs.ModeNamedPipe != 0:
-		mode |= syscall.S_IFIFO
+		mode |= unix.S_IFIFO
 	case m&fs.ModeSocket != 0:
-		mode |= syscall.S_IFSOCK
+		mode |= unix.S_IFSOCK
 	case m&fs.ModeDevice != 0:
 		if m&fs.ModeCharDevice != 0 {
-			mode |= syscall.S_IFCHR
+			mode |= unix.S_IFCHR
 		} else {
-			mode |= syscall.S_IFBLK
+			mode |= unix.S_IFBLK
 		}
 	default:
-		mode |= syscall.S_IFREG
+		mode |= unix.S_IFREG
 	}
 
 	// special bits
 	if m&fs.ModeSetuid != 0 {
-		mode |= syscall.S_ISUID
+		mode |= unix.S_ISUID
 	}
 	if m&fs.ModeSetgid != 0 {
-		mode |= syscall.S_ISGID
+		mode |= unix.S_ISGID
 	}
 	if m&fs.ModeSticky != 0 {
-		mode |= syscall.S_ISVTX
+		mode |= unix.S_ISVTX
 	}
 
 	return mode
@@ -57,88 +58,88 @@ func StrMode(m fs.FileMode) string {
 	mode := FileModeToMode(m)
 
 	// File type
-	switch mode & syscall.S_IFMT {
-	case syscall.S_IFDIR:
+	switch mode & unix.S_IFMT {
+	case unix.S_IFDIR:
 		b[0] = 'd'
-	case syscall.S_IFCHR:
+	case unix.S_IFCHR:
 		b[0] = 'c'
-	case syscall.S_IFBLK:
+	case unix.S_IFBLK:
 		b[0] = 'b'
-	case syscall.S_IFREG:
+	case unix.S_IFREG:
 		b[0] = '-'
-	case syscall.S_IFLNK:
+	case unix.S_IFLNK:
 		b[0] = 'l'
-	case syscall.S_IFSOCK:
+	case unix.S_IFSOCK:
 		b[0] = 's'
-	case syscall.S_IFIFO:
+	case unix.S_IFIFO:
 		b[0] = 'p'
 	default:
 		b[0] = '?'
 	}
 
 	// User permissions
-	if mode&syscall.S_IRUSR != 0 {
+	if mode&unix.S_IRUSR != 0 {
 		b[1] = 'r'
 	} else {
 		b[1] = '-'
 	}
-	if mode&syscall.S_IWUSR != 0 {
+	if mode&unix.S_IWUSR != 0 {
 		b[2] = 'w'
 	} else {
 		b[2] = '-'
 	}
-	switch mode & (syscall.S_IXUSR | syscall.S_ISUID) {
+	switch mode & (unix.S_IXUSR | unix.S_ISUID) {
 	case 0:
 		b[3] = '-'
-	case syscall.S_IXUSR:
+	case unix.S_IXUSR:
 		b[3] = 'x'
-	case syscall.S_ISUID:
+	case unix.S_ISUID:
 		b[3] = 'S'
-	case syscall.S_IXUSR | syscall.S_ISUID:
+	case unix.S_IXUSR | unix.S_ISUID:
 		b[3] = 's'
 	}
 
 	// Group permissions
-	if mode&syscall.S_IRGRP != 0 {
+	if mode&unix.S_IRGRP != 0 {
 		b[4] = 'r'
 	} else {
 		b[4] = '-'
 	}
-	if mode&syscall.S_IWGRP != 0 {
+	if mode&unix.S_IWGRP != 0 {
 		b[5] = 'w'
 	} else {
 		b[5] = '-'
 	}
-	switch mode & (syscall.S_IXGRP | syscall.S_ISGID) {
+	switch mode & (unix.S_IXGRP | unix.S_ISGID) {
 	case 0:
 		b[6] = '-'
-	case syscall.S_IXGRP:
+	case unix.S_IXGRP:
 		b[6] = 'x'
-	case syscall.S_ISGID:
+	case unix.S_ISGID:
 		b[6] = 'S'
-	case syscall.S_IXGRP | syscall.S_ISGID:
+	case unix.S_IXGRP | unix.S_ISGID:
 		b[6] = 's'
 	}
 
 	// Other permissions
-	if mode&syscall.S_IROTH != 0 {
+	if mode&unix.S_IROTH != 0 {
 		b[7] = 'r'
 	} else {
 		b[7] = '-'
 	}
-	if mode&syscall.S_IWOTH != 0 {
+	if mode&unix.S_IWOTH != 0 {
 		b[8] = 'w'
 	} else {
 		b[8] = '-'
 	}
-	switch mode & (syscall.S_IXOTH | syscall.S_ISVTX) {
+	switch mode & (unix.S_IXOTH | unix.S_ISVTX) {
 	case 0:
 		b[9] = '-'
-	case syscall.S_IXOTH:
+	case unix.S_IXOTH:
 		b[9] = 'x'
-	case syscall.S_ISVTX:
+	case unix.S_ISVTX:
 		b[9] = 'T'
-	case syscall.S_IXOTH | syscall.S_ISVTX:
+	case unix.S_IXOTH | unix.S_ISVTX:
 		b[9] = 't'
 	}
 

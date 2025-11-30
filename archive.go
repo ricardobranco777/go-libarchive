@@ -3,11 +3,9 @@
 package archive
 
 /*
-#cgo pkg-config: libarchive
 #include <archive.h>
 #include <archive_entry.h>
 #include <stdlib.h>
-
 extern ssize_t goReadCallback(struct archive*, uintptr_t, void**);
 extern int64_t goSeekCallback(struct archive*, uintptr_t, int64_t, int);
 extern int goCloseCallback(struct archive*, uintptr_t);
