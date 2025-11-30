@@ -17,30 +17,19 @@ func formatTime(t time.Time) string {
 }
 
 func main() {
-	ar, err := libarchive.OpenReader(os.Stdin)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer ar.Close()
-
-	for {
-		e, err := ar.Next()
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			log.Fatal(err)
-		}
-
+	err := libarchive.Walk(os.Stdin, func(h *libarchive.Header) error {
 		t := ""
-		if e.IsDir() {
+		if h.IsDir() {
 			t = "/"
 		}
-		fmt.Printf("%s%s/%s %5d %s %s%s", libarchive.StrMode(e.Mode()), e.Uname, e.Gname, e.Size(), formatTime(e.ModTime()), e.Name(), t)
-
-		if e.Linkname != "" {
-			fmt.Printf(" -> %s", e.Linkname)
+		fmt.Printf("%s%s/%s %5d %s %s%s", libarchive.StrMode(h.Mode()), h.Uname, h.Gname, h.Size(), formatTime(h.ModTime()), h.Name(), t)
+		if h.Linkname != "" {
+			fmt.Printf(" -> %s", h.Linkname)
 		}
 		fmt.Println()
+		return nil
+	})
+	if err != nil && err != io.EOF {
+		log.Fatal(err)
 	}
 }
