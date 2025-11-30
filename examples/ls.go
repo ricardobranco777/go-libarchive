@@ -3,7 +3,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -71,7 +70,7 @@ func main() {
 	for {
 		e, err := ar.Next()
 		if err != nil {
-			if errors.Is(err, io.EOF) {
+			if err == io.EOF {
 				break
 			}
 			log.Fatal(err)
