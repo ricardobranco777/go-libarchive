@@ -30,9 +30,6 @@ func main() {
 		}
 
 		fmt.Printf("Entry: %s (%d bytes)\n", e.Name(), e.Size())
-
-		_ = e.Skip()
-		// FIXME: defer?
 		e.Close()
 	}
 }
