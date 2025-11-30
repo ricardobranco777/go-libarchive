@@ -112,6 +112,12 @@ func (e *Entry) ModTime() time.Time {
 	return time.Unix(sec, nsec)
 }
 
+// Nlink returns the number of links
+func (e *Entry) Nlink() int {
+	return int(C.archive_entry_nlink(e.c))
+}
+
+// IsDir returns true if entry is a directory.
 func (e *Entry) IsDir() bool {
 	return C.archive_entry_filetype(e.c) == C.AE_IFDIR
 }

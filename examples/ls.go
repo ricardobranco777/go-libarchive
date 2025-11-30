@@ -77,6 +77,7 @@ func main() {
 		}
 
 		mode := e.Mode()
+		nlink := e.Nlink()
 		uid := e.UID()
 		gid := e.GID()
 		size := e.Size()
@@ -90,7 +91,7 @@ func main() {
 			"%c%s %3d %5d %5d %10d %s %s",
 			t,
 			formatMode(mode),
-			1, // hardlink count (placeholder)
+			nlink,
 			uid,
 			gid,
 			size,
