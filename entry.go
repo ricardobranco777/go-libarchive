@@ -120,7 +120,7 @@ func (e *Entry) ModTime() time.Time {
 }
 
 func (e *Entry) IsDir() bool {
-	return e.Mode().IsDir()
+	return C.archive_entry_filetype(e.c) == C.AE_IFDIR
 }
 
 type EntrySys struct {
@@ -148,7 +148,24 @@ func (e *Entry) Sys() any {
 var _ fs.DirEntry = (*Entry)(nil)
 
 func (e *Entry) Type() fs.FileMode {
-	return e.Mode().Type()
+	switch C.archive_entry_filetype(e.c) {
+	case C.AE_IFDIR:
+		return fs.ModeDir
+	case C.AE_IFLNK:
+		return fs.ModeSymlink
+	case C.AE_IFREG:
+		return 0
+	case C.AE_IFIFO:
+		return fs.ModeNamedPipe
+	case C.AE_IFCHR:
+		return fs.ModeCharDevice
+	case C.AE_IFBLK:
+		return fs.ModeDevice
+	case C.AE_IFSOCK:
+		return fs.ModeSocket
+	default:
+		return 0
+	}
 }
 
 func (e *Entry) Info() (fs.FileInfo, error) {
