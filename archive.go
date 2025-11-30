@@ -131,16 +131,10 @@ func (a *Archive) Next() (*Entry, error) {
 
 // Skip entry by draining data for non-io.Seeker readers
 func (e *Entry) Skip() error {
-	var buf [32 * 1024]byte
-	for {
-		n, err := e.Read(buf[:])
-		if n == 0 && err != nil {
-			if errors.Is(err, io.EOF) {
-				return nil
-			}
-			return err
-		}
+	if C.archive_read_data_skip(e.a.c) != C.ARCHIVE_OK {
+		return wrapArchiveError(e.a.c, "archive_read_data_skip")
 	}
+	return nil
 }
 
 // Close closes the archive and frees associated C resources.
@@ -312,17 +306,13 @@ func goSeekCallback(a *C.struct_archive, clientData C.uintptr_t, offset C.int64_
 	h := cgo.Handle(uintptr(clientData))
 	ar := h.Value().(*Archive)
 
-	// Try to interpret the underlying reader as an io.Seeker.
-	s, ok := ar.rs.r.(io.Seeker)
-	if !ok {
-		return C.int64_t(-1)
+	if s, ok := ar.rs.r.(io.Seeker); ok {
+		n, err := s.Seek(int64(offset), int(whence))
+		if err == nil {
+			return C.int64_t(n)
+		}
 	}
-
-	n, err := s.Seek(int64(offset), int(whence))
-	if err != nil {
-		return C.int64_t(-1)
-	}
-	return C.int64_t(n)
+	return C.int64_t(-1)
 }
 
 //export goCloseCallback
