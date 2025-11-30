@@ -179,6 +179,7 @@ func (a *Archive) Next() (*Header, error) {
 			Uname:    C.GoString(C.archive_entry_uname(entry)),
 			Gname:    C.GoString(C.archive_entry_gname(entry)),
 			Modified: time.Unix(sec, nsec),
+			a:        a,
 			size:     int64(st.st_size),
 		}
 		C.archive_entry_free(entry)
