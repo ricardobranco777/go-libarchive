@@ -261,8 +261,9 @@ func OpenReader(r io.Reader) (*Archive, error) {
 	// tell libarchive it can try to seek.
 	if _, ok := r.(io.Seeker); ok {
 		if C.archive_read_set_seek_callback(ar.c, C.seek_cb()) != C.ARCHIVE_OK {
+			err := wrapArchiveError(ar.c, "archive_read_set_seek_callback")
 			_ = ar.Close()
-			return nil, wrapArchiveError(ar.c, "archive_read_set_seek_callback")
+			return nil, err
 		}
 	}
 
