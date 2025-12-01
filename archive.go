@@ -37,10 +37,10 @@ import (
 type Header struct {
 	Pathname string    // Name of file entry
 	Linkname string    // Target name of link
-	Uid      int       // User ID of owner
-	Gid      int       // Group ID of owner
 	Uname    string    // User name of owner
 	Gname    string    // Group name of owner
+	Uid      int64     // User ID of owner
+	Gid      int64     // Group ID of owner
 	Modified time.Time // Modification time
 	UnixMode int       // Permission and mode bits
 	a        *Archive
@@ -146,8 +146,8 @@ func (a *Archive) Next() (*Header, error) {
 			Pathname: pathname,
 			Linkname: symlink,
 			UnixMode: int(st.st_mode),
-			Uid:      int(st.st_uid),
-			Gid:      int(st.st_gid),
+			Uid:      int64(st.st_uid),
+			Gid:      int64(st.st_gid),
 			Uname:    C.GoString(C.archive_entry_uname(entry)),
 			Gname:    C.GoString(C.archive_entry_gname(entry)),
 			Modified: time.Unix(sec, nsec),
