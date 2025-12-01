@@ -3,11 +3,7 @@
 package archive
 
 /*
-#cgo CFLAGS: -I/usr/local/include -I/usr/include
-#cgo LDFLAGS: -L/usr/local/lib -larchive
 #include <archive.h>
-#include <archive_entry.h>
-#include <stdlib.h>
 */
 import "C"
 
