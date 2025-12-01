@@ -22,7 +22,7 @@ func main() {
 		if h.IsDir() {
 			t = "/"
 		}
-		fmt.Printf("%s%s/%s %5d %s %s%s", libarchive.StrMode(h.Mode()), h.Uname, h.Gname, h.Size(), formatTime(h.ModTime()), h.Name(), t)
+		fmt.Printf("%s%s/%s %5d %s %s%s", libarchive.StrMode(h.UnixMode), h.Uname, h.Gname, h.Size(), formatTime(h.ModTime()), h.Name(), t)
 		if h.Linkname != "" {
 			fmt.Printf(" -> %s", h.Linkname)
 		}

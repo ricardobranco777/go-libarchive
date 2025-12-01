@@ -13,13 +13,42 @@ var _ fs.FileInfo = (*Header)(nil)
 
 // IsDir returns true if entry is a directory.
 func (h *Header) IsDir() bool {
-	return h.FileMode&os.ModeDir != 0
+	return h.Mode()&os.ModeDir != 0
 }
 
 // Mode returns the entry's permission bits as an os.FileMode.
 // (Type bits are also included.)
 func (h *Header) Mode() os.FileMode {
-	return h.FileMode
+	mode := os.FileMode(h.UnixMode)
+
+	if h.UnixMode&04000 != 0 {
+		mode |= os.ModeSetuid
+	}
+	if h.UnixMode&02000 != 0 {
+		mode |= os.ModeSetgid
+	}
+	if h.UnixMode&01000 != 0 {
+		mode |= os.ModeSticky
+	}
+
+	switch mode & S_IFMT {
+	case S_IFBLK:
+		mode |= fs.ModeDevice
+	case S_IFCHR:
+		mode |= fs.ModeDevice | fs.ModeCharDevice
+	case S_IFDIR:
+		mode |= fs.ModeDir
+	case S_IFIFO:
+		mode |= fs.ModeNamedPipe
+	case S_IFLNK:
+		mode |= fs.ModeSymlink
+	case S_IFREG:
+		break
+	case S_IFSOCK:
+		mode |= fs.ModeSocket
+	}
+
+	return mode
 }
 
 // ModTime returns the modification time of the entry.

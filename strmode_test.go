@@ -1,45 +1,44 @@
 package archive
 
 import (
-	"io/fs"
 	"testing"
 )
 
 func TestStrMode(t *testing.T) {
 	tests := []struct {
-		mode fs.FileMode
+		mode uint32
 		want string
 	}{
 		// basic perms
-		{0o0000, "---------- "},
-		{0o0644, "-rw-r--r-- "},
-		{0o0755, "-rwxr-xr-x "},
-		{0o0777, "-rwxrwxrwx "},
+		{S_IFREG, "---------- "},
+		{S_IFREG | 0o0644, "-rw-r--r-- "},
+		{S_IFREG | 0o0755, "-rwxr-xr-x "},
+		{S_IFREG | 0o0777, "-rwxrwxrwx "},
 
 		// directories
-		{fs.ModeDir | 0o755, "drwxr-xr-x "},
-		{fs.ModeDir | 0o777, "drwxrwxrwx "},
+		{S_IFDIR | 0o755, "drwxr-xr-x "},
+		{S_IFDIR | 0o777, "drwxrwxrwx "},
 
 		// sticky bit
-		{fs.ModeDir | fs.ModeSticky | 0o777, "drwxrwxrwt "},
-		{fs.ModeSticky, "---------T "},
+		{S_IFDIR | S_ISVTX | 0o777, "drwxrwxrwt "},
+		{S_IFREG | S_ISVTX, "---------T "},
 
 		// setuid
-		{fs.ModeSetuid | 0o4755, "-rwsr-xr-x "},
-		{fs.ModeSetuid | 0o0400, "-r-S------ "},
+		{S_IFREG | S_ISUID | 0o4755, "-rwsr-xr-x "},
+		{S_IFREG | S_ISUID | 0o0400, "-r-S------ "},
 
 		// setgid
-		{fs.ModeSetgid | 0o2755, "-rwxr-sr-x "},
-		{fs.ModeSetgid, "------S--- "},
+		{S_IFREG | S_ISGID | 0o2755, "-rwxr-sr-x "},
+		{S_IFREG | S_ISGID, "------S--- "},
 
 		// character & block device
-		{fs.ModeDevice | fs.ModeCharDevice, "c--------- "},
-		{fs.ModeDevice, "b--------- "},
+		{S_IFCHR, "c--------- "},
+		{S_IFBLK, "b--------- "},
 
 		// fifo, socket, symlink
-		{fs.ModeNamedPipe | 0o644, "prw-r--r-- "},
-		{fs.ModeSocket | 0o777, "srwxrwxrwx "},
-		{fs.ModeSymlink | 0o777, "lrwxrwxrwx "},
+		{S_IFIFO | 0o644, "prw-r--r-- "},
+		{S_IFSOCK | 0o777, "srwxrwxrwx "},
+		{S_IFLNK | 0o777, "lrwxrwxrwx "},
 	}
 
 	for _, tt := range tests {

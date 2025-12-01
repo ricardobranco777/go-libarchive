@@ -25,7 +25,6 @@ import "C"
 import (
 	"errors"
 	"io"
-	"io/fs"
 	"os"
 	"runtime"
 	"runtime/cgo"
@@ -36,14 +35,14 @@ import (
 
 // Header represents a single entry (file, dir, symlink, ...) in an archive.
 type Header struct {
-	Pathname string      // Name of file entry
-	Linkname string      // Target name of link
-	FileMode os.FileMode // Permission and mode bits
-	Uid      int         // User ID of owner
-	Gid      int         // Group ID of owner
-	Uname    string      // User name of owner
-	Gname    string      // Group name of owner
-	Modified time.Time   // Modification time
+	Pathname string    // Name of file entry
+	Linkname string    // Target name of link
+	Uid      int       // User ID of owner
+	Gid      int       // Group ID of owner
+	Uname    string    // User name of owner
+	Gname    string    // Group name of owner
+	Modified time.Time // Modification time
+	UnixMode uint32    // Permission and mode bits
 	a        *Archive
 	size     int64 // Logical file size in bytes
 }
@@ -137,35 +136,8 @@ func (a *Archive) Next() (*Header, error) {
 		nsec := int64(C.archive_entry_mtime_nsec(entry))
 
 		symlink := ""
-
-		mode := os.FileMode(st.st_mode & 07777)
-
-		if st.st_mode&04000 != 0 {
-			mode |= os.ModeSetuid
-		}
-		if st.st_mode&02000 != 0 {
-			mode |= os.ModeSetgid
-		}
-		if st.st_mode&01000 != 0 {
-			mode |= os.ModeSticky
-		}
-
-		switch C.archive_entry_filetype(entry) {
-		case C.AE_IFBLK:
-			mode |= fs.ModeDevice
-		case C.AE_IFCHR:
-			mode |= fs.ModeDevice | fs.ModeCharDevice
-		case C.AE_IFDIR:
-			mode |= fs.ModeDir
-		case C.AE_IFIFO:
-			mode |= fs.ModeNamedPipe
-		case C.AE_IFLNK:
-			mode |= fs.ModeSymlink
+		if C.archive_entry_filetype(entry) == C.AE_IFLNK {
 			symlink = C.GoString(C.archive_entry_symlink(entry))
-		case C.AE_IFREG:
-			break
-		case C.AE_IFSOCK:
-			mode |= fs.ModeSocket
 		}
 
 		pathname := strings.TrimRight(C.GoString(C.archive_entry_pathname(entry)), string(os.PathSeparator))
@@ -173,7 +145,7 @@ func (a *Archive) Next() (*Header, error) {
 		h := &Header{
 			Pathname: pathname,
 			Linkname: symlink,
-			FileMode: mode,
+			UnixMode: uint32(st.st_mode),
 			Uid:      int(st.st_uid),
 			Gid:      int(st.st_gid),
 			Uname:    C.GoString(C.archive_entry_uname(entry)),
