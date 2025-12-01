@@ -6,7 +6,7 @@ import (
 
 func TestStrMode(t *testing.T) {
 	tests := []struct {
-		mode uint32
+		mode int
 		want string
 	}{
 		// basic perms

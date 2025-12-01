@@ -5,7 +5,7 @@ package archive
 // StrMode converts a file mode to a string like "drwxr-xr-x".
 // This is Golang implementation of BSD strmode(3)
 // because io/fs's FileMode.String() sucks.
-func StrMode(mode uint32) string {
+func StrMode(mode int) string {
 	var b [11]byte
 
 	// File type
