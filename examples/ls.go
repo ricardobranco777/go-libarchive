@@ -28,7 +28,7 @@ func main() {
 		log.Fatalf("usage: %s [URL]\n", os.Args[0])
 	} else if argc > 1 {
 		url := os.Args[1]
-		httpseek.SetLogger(httpseek.StdLogger())
+		// httpseek.SetLogger(httpseek.StdLogger())
 		f, err = httpseek.Open(url)
 		if err != nil {
 			log.Fatalf("open: %v", err)
