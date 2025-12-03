@@ -10,6 +10,7 @@ import (
 	"time"
 
 	libarchive "github.com/ricardobranco777/go-libarchive"
+	"github.com/ricardobranco777/httpseek"
 )
 
 func formatTime(t time.Time) string {
@@ -17,7 +18,25 @@ func formatTime(t time.Time) string {
 }
 
 func main() {
-	err := libarchive.Walk(os.Stdin, func(h *libarchive.Header) error {
+	log.SetFlags(0)
+
+	f := io.ReadCloser(os.Stdin)
+	var err error
+
+	argc := len(os.Args)
+	if argc > 2 {
+		log.Fatalf("usage: %s [URL]\n", os.Args[0])
+	} else if argc > 1 {
+		url := os.Args[1]
+		httpseek.SetLogger(httpseek.StdLogger())
+		f, err = httpseek.Open(url)
+		if err != nil {
+			log.Fatalf("open: %v", err)
+		}
+		defer f.Close()
+	}
+
+	err = libarchive.Walk(f, func(h *libarchive.Header) error {
 		t := ""
 		if h.IsDir() {
 			t = "/"
