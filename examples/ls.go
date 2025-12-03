@@ -27,7 +27,7 @@ func main() {
 			fmt.Printf(" -> %s", h.Linkname)
 		}
 		fmt.Println()
-		return nil
+		return h.Skip()
 	})
 	if err != nil && err != io.EOF {
 		log.Fatal(err)

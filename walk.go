@@ -31,8 +31,5 @@ func Walk(r io.Reader, fn WalkFunc) error {
 		if err := fn(h); err != nil {
 			return err
 		}
-		if err := h.Skip(); err != nil {
-			return err
-		}
 	}
 }
