@@ -14,6 +14,7 @@ test:
 	$(GO) vet ./...
 	staticcheck ./...
 	gofmt -s -l .
+	golangci-lint run
 
 clean:
 	$(GO) clean -a

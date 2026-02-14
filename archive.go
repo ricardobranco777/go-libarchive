@@ -42,7 +42,7 @@ type Header struct {
 	Uid      int64     // User ID of owner
 	Gid      int64     // Group ID of owner
 	Modified time.Time // Modification time
-	UnixMode int       // Permission and mode bits
+	UnixMode uint32    // Permission and mode bits
 	a        *Archive
 	size     int64 // Logical file size in bytes
 }
@@ -145,7 +145,7 @@ func (a *Archive) Next() (*Header, error) {
 		h := &Header{
 			Pathname: pathname,
 			Linkname: symlink,
-			UnixMode: int(st.st_mode),
+			UnixMode: uint32(st.st_mode),
 			Uid:      int64(st.st_uid),
 			Gid:      int64(st.st_gid),
 			Uname:    C.GoString(C.archive_entry_uname(entry)),

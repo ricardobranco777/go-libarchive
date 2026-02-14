@@ -1,7 +1,7 @@
+//go:build ignore
+
 /* SPDX-License-Identifier: BSD-2-Clause */
 
-//go:build ignore
-// +build ignore
 package main
 
 import (
