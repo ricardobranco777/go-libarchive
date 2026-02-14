@@ -17,7 +17,7 @@ func Walk(r io.Reader, fn WalkFunc) error {
 	if err != nil {
 		return err
 	}
-	defer ar.Close() //nolint:errcheck
+	defer ar.Close()
 
 	for {
 		h, err := ar.Next()
